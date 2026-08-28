@@ -120,7 +120,7 @@ def generate_excel_in_memory(data):
     output.seek(0)
     return output
 
-st.set_page_config(page_title="YouTube Scraper App")
+st.set_page_config(page_title="App")
 st.title("Bro me tienes haciendo tu chamba")
 
 col1, col2, col3 = st.columns(3)
@@ -135,14 +135,14 @@ uploaded_file = st.file_uploader("Sube tu archivo excel.xlsx", type=["xlsx"])
 
 if st.button("Empezar!!!"):
     if not uploaded_file:
-        st.error("Please upload an Excel file with links first.")
+        st.error("Socio/a suba el archivo primero 💀")
     else:
         video_list = read_urls_from_excel(uploaded_file)
         
         if not video_list:
-            st.error("No valid links found in the first column.")
+            st.error("Links invalidos")
         else:
-            st.info(f"Found {len(video_list)} links. Starting Chrome engine...")
+            st.info(f"Se encontraron {len(video_list)} links....")
             
             now = datetime.now()
             current_date = now.strftime("%d/%m/%Y")
@@ -187,6 +187,6 @@ if st.button("Empezar!!!"):
             st.download_button(
                 label="Desacargar el archivo",
                 data=excel_file,
-                file_name="youtube_links_result.xlsx",
+                file_name="result.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
             )
