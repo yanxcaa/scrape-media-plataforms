@@ -46,6 +46,11 @@ def scrape(page, url: str):
     except:
         likes_count = "need to see it manual"
         
+    try:
+        kol = 'test'
+    except:
+        kol = 'need to see it manual'
+        
 
     try:
         views_locator = page.locator('#info span.style-scope.yt-formatted-string').first
@@ -70,7 +75,7 @@ def scrape(page, url: str):
     except:
         clean_comments = "need to see it manual"
 
-    return views_count, likes_count, clean_comments, is_live
+    return views_count, likes_count, clean_comments, is_live, kol
 
 def read_urls_from_excel(uploaded_file):
     workbook = openpyxl.load_workbook(uploaded_file)
@@ -123,12 +128,8 @@ def generate_excel_in_memory(data):
 st.set_page_config(page_title="App")
 st.title("Bro me tienes haciendo tu chamba")
 
-col1, col2, col3 = st.columns(3)
+(col1,) = st.columns(1)
 with col1:
-    kol_type = st.text_input('KOL Type:')
-with col2:
-    kol = st.text_input('KOL:')
-with col3:
     game = st.text_input('Game:')
 
 uploaded_file = st.file_uploader("Sube tu archivo excel.xlsx", type=["xlsx"])
@@ -148,6 +149,7 @@ if st.button("Empezar!!!"):
             current_date = now.strftime("%d/%m/%Y")
             current_week = now.isocalendar()[1]
             current_month = now.month
+            kol_type = 'Coupon'
             
             results_data = []
             
@@ -161,7 +163,7 @@ if st.button("Empezar!!!"):
                 
                 for index, link in enumerate(video_list):
                     progress_bar.progress((index + 1) / len(video_list))                   
-                    views, likes, comments, is_live = scrape(page, link)
+                    views, likes, comments, is_live, kol = scrape(page, link)
                     
                     row_data = [
                         kol_type,
