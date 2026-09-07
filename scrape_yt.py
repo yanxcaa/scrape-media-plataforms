@@ -212,7 +212,7 @@ def generate_excel_in_memory(data):
     return output
 
 st.set_page_config(page_title="Data from Youtube and Twitch")
-st.title("Youtube - Twitch")
+st.title("Youtube - Twitch data")
 
 (col1,) = st.columns(1)
 with col1:
@@ -242,7 +242,7 @@ if st.button("Start!!!"):
             status_text = st.empty()
 
             with sync_playwright() as brodoyourchamba:
-                browser = brodoyourchamba.chromium.launch(headless=False)
+                browser = brodoyourchamba.chromium.launch(headless=True)
                 context = browser.new_context(viewport={'width': 1280, 'height': 720})
                 page = context.new_page()
                 
