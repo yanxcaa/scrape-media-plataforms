@@ -19,20 +19,20 @@ def convert_to_exact_date(date_text):
     now = datetime.now()
     
     if "yesterday" in date_text or "ayer" in date_text:
-        return (now - timedelta(days=1)).strftime("%d/%m/%Y")
+        return (now - timedelta(days=1)).strftime("%m/%d/%Y")
         
     match = re.search(r'(\d+)', date_text)
     if match:
         num = int(match.group(1))
         
         if "minute" in date_text or "minuto" in date_text or "hour" in date_text or "hora" in date_text:
-            return now.strftime("%d/%m/%Y")
+            return now.strftime("%m/%d/%Y")
             
         elif "day" in date_text or "día" in date_text or "dia" in date_text:
-            return (now - timedelta(days=num)).strftime("%d/%m/%Y")
+            return (now - timedelta(days=num)).strftime("%m/%d/%Y")
             
         elif "week" in date_text or "semana" in date_text:
-            return (now - timedelta(weeks=num)).strftime("%d/%m/%Y")
+            return (now - timedelta(weeks=num)).strftime("%m/%d/%Y")
             
     return date_text.title()
 
