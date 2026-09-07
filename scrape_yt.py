@@ -7,8 +7,34 @@ from openpyxl.utils import get_column_letter
 from datetime import datetime
 import re
 import io
+from datetime import timedelta
 
 os.system("playwright install chromium")
+
+def convert_to_exact_date(date_text):
+    if not date_text or date_text == 'need to see it manual':
+        return 'need to see it manual'
+        
+    date_text = str(date_text).lower().strip()
+    now = datetime.now()
+    
+    if "yesterday" in date_text or "ayer" in date_text:
+        return (now - timedelta(days=1)).strftime("%d/%m/%Y")
+        
+    match = re.search(r'(\d+)', date_text)
+    if match:
+        num = int(match.group(1))
+        
+        if "minute" in date_text or "minuto" in date_text or "hour" in date_text or "hora" in date_text:
+            return now.strftime("%d/%m/%Y")
+            
+        elif "day" in date_text or "día" in date_text or "dia" in date_text:
+            return (now - timedelta(days=num)).strftime("%d/%m/%Y")
+            
+        elif "week" in date_text or "semana" in date_text:
+            return (now - timedelta(weeks=num)).strftime("%d/%m/%Y")
+            
+    return date_text.title()
 
 def parse_youtube_number(text):
     text = text.upper().strip()
@@ -20,6 +46,50 @@ def parse_youtube_number(text):
         return int(text)
     return text
 
+def t_scrape(page, url: str):
+    try:
+        page.goto(url, wait_until="domcontentloaded", timeout=60000)
+    except Exception:
+        pass
+    
+    platform = 'Twitch'
+    
+    page.evaluate("window.scrollBy(0, 300)")
+    
+    try:
+        views_pattern = re.compile(r"^[\d,KMB\.]+\s*(?:views|vistas)$", re.IGNORECASE)
+        views_locator = page.get_by_text(views_pattern).first
+        
+        views_locator.wait_for(timeout=15000)
+        whole_views = views_locator.inner_text()
+        
+        raw_views = whole_views.split(' ')[0]
+        clean_views = raw_views.replace(',', '').strip()
+        
+        views = parse_youtube_number(clean_views)
+    except:
+        views = 'need to see it manual'
+    
+    
+    try:
+        date_selector = 'div.Layout-sc-1xcs6mc-0.kBZhWz p.CoreText-sc-1txzju1-0.fMPrtl'
+        page.wait_for_selector(date_selector, timeout=5000)
+        raw_date = page.locator(date_selector).first.inner_text()
+        
+        date = convert_to_exact_date(raw_date)
+    except:
+        date = 'need to see it manual'
+    
+    try:
+        kol_selector = 'div.Layout-sc-1xcs6mc-0.kEFEDy.metadata-layout__support h1.CoreText-sc-1txzju1-0.ScTitleText-sc-d9mj2s-0.fPJBrv.GsAAv.InjectLayout-sc-1i43xsx-0.kMQdEY.tw-title'
+        page.wait_for_selector(kol_selector, timeout=5000)
+        kol = page.locator(kol_selector).first.inner_text()
+    except:
+        kol = 'need to see it manual'
+        
+    return views, date, kol, platform
+        
+
 def scrape(page, url: str):
     page.goto(url)
 
@@ -30,8 +100,9 @@ def scrape(page, url: str):
 
     try:
         is_live = page.locator('meta[itemprop="isLiveBroadcast"]').count() > 0
+        platform = 'Youtube Live' if is_live else 'Youtube'
     except:
-        is_live = "need to see it manual"
+        platform = "need to see it manual"
 
     page.evaluate("window.scrollBy(0, 600)")
 
@@ -47,9 +118,24 @@ def scrape(page, url: str):
         likes_count = "need to see it manual"
         
     try:
-        kol = 'test'
+        kol_locator = 'ytd-video-owner-renderer #channel-name #text'
+        page.wait_for_selector(kol_locator, timeout=5000)
+        kol_element = page.locator(kol_locator).first
+        
+        kol = kol_element.get_attribute('title')
+        if not kol:
+            kol = kol_element.inner_text().strip()
     except:
         kol = 'need to see it manual'
+        
+    try:
+        date_selector = '#info span.style-scope.yt-formatted-string'
+        page.wait_for_selector(date_selector, timeout=5000)
+        raw_date = page.locator(date_selector).nth(2).inner_text()
+        
+        date = convert_to_exact_date(raw_date)
+    except:
+        date = 'need to see it manual'
         
 
     try:
@@ -71,11 +157,11 @@ def scrape(page, url: str):
             
         clean_comments = comments_text.replace(',', '').strip()
         if not clean_comments:
-            raise ValueError("Empty string")
+            raise ValueError("Empty comments")
     except:
         clean_comments = "need to see it manual"
 
-    return views_count, likes_count, clean_comments, is_live, kol
+    return views_count, likes_count, clean_comments, date, platform, kol
 
 def read_urls_from_excel(uploaded_file):
     workbook = openpyxl.load_workbook(uploaded_file)
@@ -93,10 +179,10 @@ def generate_excel_in_memory(data):
     ws = wb.worksheets[0] 
     ws.title = "Scrape Results"
     
-    headers = ['KOL Type', 'KOL', 'Date', 'Week', 'Month', 'Platform', 'Link', 'Game', 'Views', 'Comments', 'Likes']
+    headers = ['KOL Type', 'KOL', 'Date', 'Week', 'Month', 'Platform', 'Link', 'Game', 'Views', 'Comments', 'Likes', 'Timestamp']
     ws.append(headers)
     
-    header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+    header_fill = PatternFill(start_color="c5a8f0", end_color="8b52e0", fill_type="solid")
     for cell in ws[1]:
         cell.font = Font(bold=True, color="FFFFFF")
         cell.fill = header_fill
@@ -125,18 +211,18 @@ def generate_excel_in_memory(data):
     output.seek(0)
     return output
 
-st.set_page_config(page_title="App")
-st.title("Bro me tienes haciendo tu chamba")
+st.set_page_config(page_title="Data from Youtube and Twitch")
+st.title("Youtube - Twitch")
 
 (col1,) = st.columns(1)
 with col1:
     game = st.text_input('Game:')
 
-uploaded_file = st.file_uploader("Sube tu archivo excel.xlsx", type=["xlsx"])
+uploaded_file = st.file_uploader("Upload your file excel.xlsx", type=["xlsx"])
 
-if st.button("Empezar!!!"):
+if st.button("Start!!!"):
     if not uploaded_file:
-        st.error("Socio/a suba el archivo primero 💀")
+        st.error("Socio/a suba el archivo primero")
     else:
         video_list = read_urls_from_excel(uploaded_file)
         
@@ -146,7 +232,6 @@ if st.button("Empezar!!!"):
             st.info(f"Se encontraron {len(video_list)} links....")
             
             now = datetime.now()
-            current_date = now.strftime("%d/%m/%Y")
             current_week = now.isocalendar()[1]
             current_month = now.month
             kol_type = 'Coupon'
@@ -156,27 +241,37 @@ if st.button("Empezar!!!"):
             progress_bar = st.progress(0)
             status_text = st.empty()
 
-            with sync_playwright() as p:
-                browser = p.chromium.launch(headless=True)
+            with sync_playwright() as brodoyourchamba:
+                browser = brodoyourchamba.chromium.launch(headless=False)
                 context = browser.new_context(viewport={'width': 1280, 'height': 720})
                 page = context.new_page()
                 
                 for index, link in enumerate(video_list):
-                    progress_bar.progress((index + 1) / len(video_list))                   
-                    views, likes, comments, is_live, kol = scrape(page, link)
+                    progress_bar.progress((index + 1) / len(video_list))
+                    status_text.text(f"link: {link}")
+                    
+                    if ('youtube' in link):           
+                        views, likes, comments, date, platform, kol = scrape(page, link)
+                    elif ('twitch' in link):
+                        views, date, kol, platform = t_scrape(page, link)
+                        likes = "-"
+                        comments = "-"
+                    else:
+                        continue
                     
                     row_data = [
                         kol_type,
                         kol,
-                        current_date,
+                        date,
                         current_week,
                         current_month,
-                        'Youtube Live' if is_live else 'Youtube',
+                        platform,
                         link,
                         game,
                         views,
                         comments,
-                        likes
+                        likes,
+                        '-'
                     ]
                     results_data.append(row_data)
                     
@@ -187,7 +282,7 @@ if st.button("Empezar!!!"):
             excel_file = generate_excel_in_memory(results_data)
             
             st.download_button(
-                label="Desacargar el archivo",
+                label="Descargar el archivo",
                 data=excel_file,
                 file_name="result.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
