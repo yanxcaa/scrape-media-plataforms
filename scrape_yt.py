@@ -250,9 +250,9 @@ if st.button("Start!!!"):
                     progress_bar.progress((index + 1) / len(video_list))
                     status_text.text(f"link: {link}")
                     
-                    if ('youtube' in link):           
+                    if ('youtu' in link.lower()):           
                         views, likes, comments, date, platform, kol = scrape(page, link)
-                    elif ('twitch' in link):
+                    elif ('twitch' in link.lower()):
                         views, date, kol, platform = t_scrape(page, link)
                         likes = "-"
                         comments = "-"
