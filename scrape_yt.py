@@ -11,6 +11,20 @@ from datetime import timedelta
 
 os.system("playwright install chromium")
 
+def get_week_and_month(date_str):
+    if date_str == 'need to see it manual' or not date_str:
+        return 'need to see it manual', 'need to see it manual'
+        
+    try:
+        date_obj = datetime.strptime(date_str, "%m/%d/%Y")
+        
+        video_week = date_obj.isocalendar()[1]
+        video_month = date_obj.month
+        
+        return video_week, video_month
+    except:
+        return 'need to see it manual', 'need to see it manual'
+
 def convert_to_exact_date(date_text):
     if not date_text or date_text == 'need to see it manual':
         return 'need to see it manual'
@@ -50,7 +64,6 @@ def convert_to_exact_date(date_text):
             break
             
     if year_match and day_match and month_val:
-        # Format as MM/DD/YYYY, padding the day with a zero if needed
         day_val = day_match.group(1).zfill(2)
         return f"{month_val}/{day_val}/{year_match.group(1)}"
         
@@ -126,7 +139,6 @@ def scrape(page, url: str):
 
     page.evaluate("window.scrollBy(0, 600)")
 
-    # --- Likes ---
     try:
         pattern = re.compile(r"like this video|me gusta", re.IGNORECASE)
         likes_locator = page.get_by_role("button", name=pattern).first
@@ -138,7 +150,6 @@ def scrape(page, url: str):
     except:
         likes_count = "need to see it manual"
         
-    # --- KOL (Channel Name) ---
     try:
         kol_locator = 'ytd-video-owner-renderer #channel-name #text'
         page.wait_for_selector(kol_locator, timeout=5000)
@@ -285,8 +296,6 @@ if st.button("Start!!!"):
             st.info(f"Se encontraron {len(video_list)} links....")
             
             now = datetime.now()
-            current_week = now.isocalendar()[1]
-            current_month = now.month
             kol_type = 'Coupon'
             
             results_data = []
@@ -312,12 +321,14 @@ if st.button("Start!!!"):
                     else:
                         continue
                     
+                    video_week, video_month = get_week_and_month(date)
+                    
                     row_data = [
                         kol_type,
                         kol,
                         date,
-                        current_week,
-                        current_month,
+                        video_week,
+                        video_month,
                         platform,
                         link,
                         game,
