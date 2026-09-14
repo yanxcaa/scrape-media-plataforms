@@ -21,19 +21,39 @@ def convert_to_exact_date(date_text):
     if "yesterday" in date_text or "ayer" in date_text:
         return (now - timedelta(days=1)).strftime("%m/%d/%Y")
         
-    match = re.search(r'(\d+)', date_text)
+    match = re.search(r'(\d+)\s+(minute|minuto|hour|hora|day|día|dia|week|semana)', date_text)
     if match:
         num = int(match.group(1))
+        unit = match.group(2)
         
-        if "minute" in date_text or "minuto" in date_text or "hour" in date_text or "hora" in date_text:
+        if unit in ["minute", "minuto", "hour", "hora"]:
             return now.strftime("%m/%d/%Y")
-            
-        elif "day" in date_text or "día" in date_text or "dia" in date_text:
+        elif unit in ["day", "día", "dia"]:
             return (now - timedelta(days=num)).strftime("%m/%d/%Y")
-            
-        elif "week" in date_text or "semana" in date_text:
+        elif unit in ["week", "semana"]:
             return (now - timedelta(weeks=num)).strftime("%m/%d/%Y")
             
+    year_match = re.search(r'(20\d{2})', date_text)
+    temp_text = date_text.replace(year_match.group(1), "") if year_match else date_text
+    day_match = re.search(r'(?<!\d)(\d{1,2})(?!\d)', temp_text)
+    
+    month_map = {
+        'jan': '01', 'ene': '01', 'feb': '02', 'mar': '03', 'apr': '04', 'abr': '04',
+        'may': '05', 'jun': '06', 'jul': '07', 'aug': '08', 'ago': '08', 'sep': '09',
+        'oct': '10', 'nov': '11', 'dec': '12', 'dic': '12'
+    }
+    
+    month_val = None
+    for m_key, m_val in month_map.items():
+        if m_key in date_text:
+            month_val = m_val
+            break
+            
+    if year_match and day_match and month_val:
+        # Format as MM/DD/YYYY, padding the day with a zero if needed
+        day_val = day_match.group(1).zfill(2)
+        return f"{month_val}/{day_val}/{year_match.group(1)}"
+        
     return date_text.title()
 
 def parse_youtube_number(text):
@@ -91,7 +111,7 @@ def t_scrape(page, url: str):
         
 
 def scrape(page, url: str):
-    page.goto(url)
+    page.goto(url, wait_until="domcontentloaded", timeout=60000)
 
     try:
         page.locator('button', has_text='Reject all').click(timeout=3000)
@@ -106,6 +126,7 @@ def scrape(page, url: str):
 
     page.evaluate("window.scrollBy(0, 600)")
 
+    # --- Likes ---
     try:
         pattern = re.compile(r"like this video|me gusta", re.IGNORECASE)
         likes_locator = page.get_by_role("button", name=pattern).first
@@ -117,6 +138,7 @@ def scrape(page, url: str):
     except:
         likes_count = "need to see it manual"
         
+    # --- KOL (Channel Name) ---
     try:
         kol_locator = 'ytd-video-owner-renderer #channel-name #text'
         page.wait_for_selector(kol_locator, timeout=5000)
@@ -129,23 +151,53 @@ def scrape(page, url: str):
         kol = 'need to see it manual'
         
     try:
-        date_selector = '#info span.style-scope.yt-formatted-string'
-        page.wait_for_selector(date_selector, timeout=5000)
-        raw_date = page.locator(date_selector).nth(2).inner_text()
-        
-        date = convert_to_exact_date(raw_date)
-    except:
-        date = 'need to see it manual'
-        
+        try:
+            expand_btn = page.locator('ytd-text-inline-expander #expand').first
+            expand_btn.wait_for(state="attached", timeout=3000)
+            
+            expand_btn.click(force=True)
+        except:
+            try:
+                page.evaluate("document.querySelector('ytd-text-inline-expander #expand').click()")
+            except:
+                pass
 
-    try:
-        views_locator = page.locator('#info span.style-scope.yt-formatted-string').first
-        views_locator.wait_for(timeout=5000)
-        raw_views = views_locator.inner_text().split(' ')[0]
-        clean_views = raw_views.strip()
-        views_count = parse_youtube_number(clean_views)
+        info_card = 'ytd-watch-info-text#ytd-watch-info-text'
+        page.wait_for_selector(info_card, timeout=5000)
+        
+        bold_spans = page.locator(f'{info_card} #info span')
+        
+        raw_views = bold_spans.nth(0).inner_text()
+        numeric_views_string = "".join(filter(str.isdigit, raw_views))
+        views_count = int(numeric_views_string) if numeric_views_string else "need to see it manual"
+        
+        raw_date = bold_spans.last.inner_text()
+        date = convert_to_exact_date(raw_date)
+        
+        if views_count == "need to see it manual":
+            raise ValueError("Trigger fallback")
+        
+        try:
+            page.locator('tp-yt-paper-button#collapse').click(timeout=3000)
+        except:
+            pass
+
     except:
-        views_count = "need to see it manual"
+        try:
+            views_locator = page.locator('#info span.style-scope.yt-formatted-string').first
+            views_locator.wait_for(timeout=5000)
+            raw_views = views_locator.inner_text().split(' ')[0]
+            clean_views = raw_views.strip()
+            views_count = parse_youtube_number(clean_views)
+        except:
+            views_count = "need to see it manual"
+            
+        try:
+            date_selector = '#info span.style-scope.yt-formatted-string'
+            raw_date = page.locator(date_selector).nth(2).inner_text()
+            date = convert_to_exact_date(raw_date)
+        except:
+            date = "need to see it manual"
 
     try:
         commentSelector = 'ytd-comments-header-renderer #count yt-formatted-string span'
@@ -162,6 +214,7 @@ def scrape(page, url: str):
         clean_comments = "need to see it manual"
 
     return views_count, likes_count, clean_comments, date, platform, kol
+
 
 def read_urls_from_excel(uploaded_file):
     workbook = openpyxl.load_workbook(uploaded_file)
@@ -211,8 +264,8 @@ def generate_excel_in_memory(data):
     output.seek(0)
     return output
 
-st.set_page_config(page_title="Data from Youtube and Twitch")
-st.title("Youtube - Twitch data")
+st.set_page_config(page_title="Game Evidence Collection")
+st.title("Game Evidence Collection")
 
 (col1,) = st.columns(1)
 with col1:
@@ -242,7 +295,7 @@ if st.button("Start!!!"):
             status_text = st.empty()
 
             with sync_playwright() as brodoyourchamba:
-                browser = brodoyourchamba.chromium.launch(headless=True)
+                browser = brodoyourchamba.chromium.launch(headless=False)
                 context = browser.new_context(viewport={'width': 1280, 'height': 720})
                 page = context.new_page()
                 
