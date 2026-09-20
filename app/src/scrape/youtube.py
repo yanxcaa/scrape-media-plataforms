@@ -14,7 +14,7 @@ def youtube_scrapping(page, url: str):
         is_live = page.locator('meta[itemprop="isLiveBroadcast"]').count() > 0
         platform = 'Youtube Live' if is_live else 'Youtube'
     except:
-        platform = "need to see it manual"
+        platform = "NEED TO SEE IT MANUAL"
 
     page.evaluate("window.scrollBy(0, 600)")
 
@@ -25,9 +25,9 @@ def youtube_scrapping(page, url: str):
         
         aria_text = likes_locator.get_attribute("aria-label") or ""
         numeric_likes_string = "".join(filter(str.isdigit, aria_text))
-        likes_count = int(numeric_likes_string) if numeric_likes_string else "need to see it manual"
+        likes_count = int(numeric_likes_string) if numeric_likes_string else "NEED TO SEE IT MANUAL"
     except:
-        likes_count = "need to see it manual"
+        likes_count = "NEED TO SEE IT MANUAL"
         
     try:
         kol_locator = 'ytd-video-owner-renderer #channel-name #text'
@@ -38,7 +38,7 @@ def youtube_scrapping(page, url: str):
         if not kol:
             kol = kol_element.inner_text().strip()
     except:
-        kol = 'need to see it manual'
+        kol = 'NEED TO SEE IT MANUAL'
         
     try:
         try:
@@ -59,13 +59,47 @@ def youtube_scrapping(page, url: str):
         
         raw_views = bold_spans.nth(0).inner_text()
         numeric_views_string = "".join(filter(str.isdigit, raw_views))
-        views_count = int(numeric_views_string) if numeric_views_string else "need to see it manual"
+        views_count = int(numeric_views_string) if numeric_views_string else "NEED TO SEE IT MANUAL"
         
-        raw_date = bold_spans.last.inner_text()
+        
+        raw_date = bold_spans.nth(2).inner_text()
         date = convert_to_exact_date(raw_date)
         
-        if views_count == "need to see it manual":
+        if views_count == "NEED TO SEE IT MANUAL":
             raise ValueError("Trigger fallback")
+        
+        try:
+            game_selector = 'ytd-structured-description-content-renderer#structured-description yt-video-attributes-section-view-model h1.ytVideoAttributeViewModelTitle'
+            page.wait_for_selector(game_selector, timeout=5000)
+            
+            raw_game_text = page.locator(game_selector).inner_text()
+            
+            clean_text = re.sub(r'[^\w\s]', '', raw_game_text)
+            
+            game_words = clean_text.split()
+            x = []
+            
+            for word in game_words:
+                upper_word = word.upper()
+                
+                if upper_word == ':':
+                    continue
+                
+                if upper_word in ['KOTZ']:
+                    continue
+                    
+                if upper_word == 'EX':
+                    x.append('EX')
+                else:
+                    x.append(upper_word[0])
+                            
+            game_youtube = ''.join(x)
+            
+            if game_youtube not in ['SSA', 'SSEX']:
+                game_youtube = 'NEED TO SEE IT MANUAL'
+                
+        except:
+            game_youtube = 'NEED TO SEE IT MANUAL'
         
         try:
             page.locator('tp-yt-paper-button#collapse').click(timeout=3000)
@@ -80,14 +114,16 @@ def youtube_scrapping(page, url: str):
             clean_views = raw_views.strip()
             views_count = parse_youtube_number(clean_views)
         except:
-            views_count = "need to see it manual"
+            views_count = "NEED TO SEE IT MANUAL"
             
         try:
             date_selector = '#info span.style-scope.yt-formatted-string'
             raw_date = page.locator(date_selector).nth(2).inner_text()
             date = convert_to_exact_date(raw_date)
         except:
-            date = "need to see it manual"
+            date = "NEED TO SEE IT MANUAL"
+            
+    page.evaluate("window.scrollBy(0, 1400)")
 
     try:
         commentSelector = 'ytd-comments-header-renderer #count yt-formatted-string span'
@@ -101,6 +137,6 @@ def youtube_scrapping(page, url: str):
         if not clean_comments:
             raise ValueError("Empty comments")
     except:
-        clean_comments = "need to see it manual"
+        clean_comments = "NEED TO SEE IT MANUAL"
 
-    return views_count, likes_count, clean_comments, date, platform, kol
+    return views_count, likes_count, clean_comments, date, platform, kol, game_youtube

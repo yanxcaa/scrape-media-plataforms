@@ -38,7 +38,7 @@ if st.button("Start!!!"):
             status_text = st.empty()
 
             with sync_playwright() as brodoyourchamba:
-                browser = brodoyourchamba.chromium.launch(headless=True)
+                browser = brodoyourchamba.chromium.launch(headless=False)
                 context = browser.new_context(viewport={'width': 1280, 'height': 720})
                 page = context.new_page()
                 
@@ -46,16 +46,23 @@ if st.button("Start!!!"):
                     progress_bar.progress((index + 1) / len(video_list))
                     status_text.text(f"link: {link}")
                     
+                    scraped_game = None
+                    
                     if ('youtu' in link.lower()):           
-                        views, likes, comments, date, platform, kol = youtube_scrapping(page, link)
+                        views, likes, comments, date, platform, kol, scraped_game = youtube_scrapping(page, link)
                     elif ('twitch' in link.lower()):
-                        views, date, kol, platform = twitch_scrapping(page, link)
+                        views, date, kol, platform, scraped_game = twitch_scrapping(page, link)
                         likes = "-"
                         comments = "-"
                     else:
                         continue
                     
                     video_week, video_month = get_week_and_month(date)
+                    
+                    if scraped_game and scraped_game != 'NEED TO SEE IT MANUAL':
+                        final_game = scraped_game
+                    else:
+                        final_game = game
                     
                     row_data = [
                         kol_type,
@@ -65,7 +72,7 @@ if st.button("Start!!!"):
                         video_month,
                         platform,
                         link,
-                        game,
+                        final_game,
                         views,
                         comments,
                         likes,
@@ -80,7 +87,7 @@ if st.button("Start!!!"):
             excel_file = generate_excel_in_memory(results_data)
             
             st.download_button(
-                label="Descargar el archivo",
+                label="Download the File",
                 data=excel_file,
                 file_name="result.xlsx",
                 mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
