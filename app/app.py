@@ -38,7 +38,7 @@ if st.button("Start!!!"):
             status_text = st.empty()
 
             with sync_playwright() as brodoyourchamba:
-                browser = brodoyourchamba.chromium.launch(headless=False)
+                browser = brodoyourchamba.chromium.launch(headless=True)
                 context = browser.new_context(viewport={'width': 1280, 'height': 720})
                 page = context.new_page()
                 
